@@ -1,0 +1,162 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql" // sqlite mysql oracl postgersql monogdb sqlserver
+  url      = env("DATABASE_URL")
+}
+
+
+//---------------users---------------------//
+
+enum Role {
+  Users
+  SubAdmins
+  Admins
+  Editor
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  email        String   @unique
+  password     String
+  role         Role     @default(Users)
+  isActive     Boolean  @default(false)
+  isStaff      Boolean  @default(false)
+  isSuperuser  Boolean  @default(false)
+  refreshToken String?  @db.LongText
+  createdAt    DateTime @default(now()) @map("date_joined")
+  updatedAt    DateTime @updatedAt @map("last_login")
+
+  profile         Profile?
+  articles        Article[]   @relation("WrittenArticle")
+  comments       Comments[]  @relation("CommentUsers")
+  favorite       Favorites[] @relation("FavoriteUsers")
+  categoryes     Category[]  @relation("writtenCategory")
+
+  @@map("users")
+}
+
+//-----------------profile-------------------//
+model Profile {
+  id        String   @id @default(uuid())
+  firstName String?  @map("first_name")
+  lastName  String?  @map("last_name")
+  bio       String?  @db.LongText
+  avatar    String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  userId String @unique
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("profiles")
+}
+
+//------------Category-----------------------//
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?  @db.LongText
+  slug        String   @unique
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String
+  createdByUser User @relation("writtenCategory",fields: [createdById],references: [id],onDelete: Cascade,onUpdate: Cascade)
+
+  articles Article[]
+
+  @@map("categories")
+}
+
+//------------Posts-----------------------//
+enum ArticleStatus {
+  DRAFT       // المسودة
+  PENDING     // بانتظار المراجعة
+  PUBLISHED   // منشور
+  REJECTED    // مرفوض
+}
+model Article {
+  id          String  @id @default(uuid())
+  title       String
+  description String? @db.LongText
+  status   ArticleStatus     @default(DRAFT)
+  slug        String  @unique
+  
+  data        Json
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  authorId   String
+  favoriteId String?
+  categoryId String
+
+  author User @relation("WrittenArticle", fields: [authorId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  archives        Archive[]
+  comments Comments[]  @relation("ArticleComments")
+  favorite Favorites[] @relation("ArticleFavorite")
+
+  @@map("articles")
+}
+
+//-------------------Comments--------------------------//
+
+model Comments {
+  id String @id @default(uuid())
+
+  description String?  @db.LongText
+  active      Boolean @default(false)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  userId    String?
+  articleId String?
+
+  user    User?    @relation("CommentUsers", fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  article Article? @relation("ArticleComments", fields: [articleId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("comments")
+}
+
+//---------------------Favorite---------------------------//
+model Favorites {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  userId    String?
+  articleId String?
+
+  user    User?    @relation("FavoriteUsers", fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  article Article? @relation("ArticleFavorite", fields: [articleId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("favorites")
+}
+
+//------------Archive-----------------------//
+model Archive {
+  id        String   @id @default(uuid())
+  isArchive Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  article Article[]
+
+  @@map("archives")
+}
+//-------------------TokenBlacklist--------------------//
+
+model TokenBlacklist {
+  id String @id @default(uuid())
+  token String @db.LongText
+
+  createdAt DateTime @default(now())
+}
